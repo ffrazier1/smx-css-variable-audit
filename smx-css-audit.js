@@ -30,7 +30,7 @@
     '--smx-color-high-emphasis':     'rgba(0, 0, 0, 0.87)',
     '--smx-color-medium-emphasis':   'rgba(0, 0, 0, 0.6)',
     '--smx-color-disabled':          'rgba(0, 0, 0, 0.38)',
-    '--smx-color-button-disabled':   'rgba(0, 0, 0, 0.08)',
+    '--smx-color-button-disabled':   'rgba(0, 0, 0, 0.12)',
     '--smx-color-on-primary':        '#FFFFFF',
     '--smx-color-background':        '#FFFFFF',
     '--smx-color-surface':           '#FFFFFF',
@@ -241,6 +241,8 @@
       i = end + 1;
     }
 
+    // We only care about SMX tokens; ignore all other `var(--*)` usages.
+    // (This keeps the audit focused and prevents noisy results from unrelated custom props.)
     return usages.filter(u => /^--smx-[\w-]+$/.test(u.variable));
   }
 
@@ -316,6 +318,12 @@
 
   /**
    * Classify a single `--smx-*` var() usage against `EXPECTED`.
+   *
+   * Status semantics:
+   * - ok: fallback exists and matches EXPECTED (with font-family normalization special-cased)
+   * - wrong: fallback exists but differs from EXPECTED
+   * - missing-fallback: no comma fallback OR fallback is empty OR only resolves to empty nested var()
+   * - unknown-var: token not present in EXPECTED (usually a new token or typo)
    * @returns {{ status: 'ok'|'wrong'|'missing-fallback'|'unknown-var', expected: string|null }}
    */
   function classify(variable, fallback, hasComma) {
@@ -395,6 +403,8 @@
       return looksLikeLiteralFontFamily(val);
     }
 
+    // Heuristic: if a themeable property contains a literal color (hex/rgb/hsl/basic keywords)
+    // and does NOT reference an SMX token, it's likely bypassing theming.
     return looksLikeLiteralColor(val);
   }
 
@@ -618,6 +628,27 @@
 
   // --- Results: dedupe, highlights, scan helpers ---
 
+  /**
+   * Normalized "row" shape used everywhere (console, panel, CSV).
+   *
+   * Producer fields (set during scanning):
+   * - auditType: 'fallback' | 'non-themed'
+   * - status: 'ok' | 'wrong' | 'missing-fallback' | 'unknown-var' | 'not-found' | 'non-themed'
+   * - variable: '--smx-*' token (fallback audit only)
+   * - property: CSS property name (non-themed audit only)
+   * - fallback / expected: found fallback vs canonical EXPECTED (fallback audit only)
+   * - selector: best-effort CSS selector or label for where we saw it
+   * - snippet: short declaration-ish context used for display/search
+   * - source: stylesheet URL, 'inline', or a synthetic label (e.g. shadow/iframe)
+   * - el: optional Element for inline styles (enables outline highlighting)
+   * - libraryHint: optional triage hint (currently `vue-mat-lib` via `mdc` heuristic)
+   *
+   * Enriched/reporting fields (added by `enrichResult`):
+   * - locator: stable-ish human string used for triage/copying
+   * - searchText: what you likely want to Ctrl+F for in sources
+   * - matchCount / exampleElements: live DOM approximation (selector-based; best-effort)
+   * - vueScopeAttr / shadowHost: hints for scoping / web-component boundaries
+   */
   const results = [];
   const seenResultKeys = new Set();
   const collapsedGroups = new Set();
@@ -649,6 +680,8 @@
     el.dataset.prevOutline = el.style.outline;
     el.classList.add(HIGHLIGHT_CLASS);
 
+    // Visual aid only: we can reliably highlight inline-styled elements we touch.
+    // Stylesheet-only findings may not map to a single concrete element at scan time.
     el.style.outline =
       status === 'ok'
         ? `2px solid ${UI.ok}`
