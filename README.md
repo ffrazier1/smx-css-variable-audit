@@ -6,23 +6,42 @@ It does two things: **fallback audit** (finds `var(--smx-…)` in readable CSS�
 
 ## How to run
 
-**Option A — Bookmarklet**
+### Option A — Chrome/Edge DevTools Snippets (recommended)
 
-1. Open [smx-css-audit.js](smx-css-audit.js) and copy the **entire** file contents (from the opening `/**` comment through the final `})();`).
-2. Create a new bookmark. Set the URL to `javascript:` immediately followed by that pasted code **with no line break** after the colon (some browsers want the whole thing on one line; you can minify if needed).
-3. Open your app (for example the page where your CDN-hosted components are running), then click the bookmark once.
+This is the most reliable way to run the audit (no URL length limits).
 
-**Bookmarklet limits:** Many browsers cap bookmark URL length. If saving the bookmark fails or it truncates, use Option B.
+1. Open the page you want to audit.
+2. Open DevTools (Mac: Cmd+Option+I, Win/Linux: Ctrl+Shift+I).
+3. Go to **Sources** → **Snippets**.
+4. Click **New snippet** and name it `smx-css-audit`.
+5. Open [smx-css-audit.js](smx-css-audit.js) in this repo and copy the **entire** file (from the first `/**` through the final `})();`).
+6. Paste into the snippet editor.
+7. Run the snippet (click **▶ Run** or press Cmd+Enter / Ctrl+Enter).
 
-**Option B — Chrome DevTools Snippets (no URL length limit)**
+You should see results in the DevTools console and a floating **SMX CSS Audit** panel on the page.
 
-1. Open DevTools → **Sources** → **Snippets** → **New snippet**.
-2. Paste the full contents of [smx-css-audit.js](smx-css-audit.js).
-3. Run the snippet (Ctrl/Cmd + Enter) while your target tab is active.
+### Option B — DevTools Console (quick one-off)
+
+1. Open the page you want to audit.
+2. Open DevTools → **Console**.
+3. Paste the full contents of [smx-css-audit.js](smx-css-audit.js).
+4. Press Enter.
+
+If console pasting is flaky (large scripts sometimes are), use the **Snippets** method instead.
 
 ## Example
 
 Load your staging or production app in the browser, run the bookmark or snippet once, then use the panel to filter issues and **Download CSV** for sharing with the team.
+
+## Third-party CSS / libraries
+
+The audit scans **any CSS the browser lets it read** (same-origin stylesheets, `<style>` tags, inline styles, `adoptedStyleSheets`, shadow roots, and same-origin iframes). It does **not** try to exclude third-party libraries by default.
+
+Reporting is intentionally scoped:
+- **Fallback audit** only records `var(--smx-*, …)` usages (ignores other custom properties).
+- **Non-themed audit** flags literal colors / `font-family` values on a small set of themeable properties when they don’t reference an SMX token (so library CSS can appear here if it sets those properties).
+
+Note: **cross-origin stylesheets/iframes aren’t readable** due to browser security, so results may not include CDN-hosted CSS.
 
 ## Customizing
 
